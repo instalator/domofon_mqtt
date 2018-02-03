@@ -23,7 +23,7 @@ PololuLedStrip<3> ledStrip;
 rgb_color colors[LED_COUNT];
 byte mac[]    = { 0xD0, 0x11, 0x01, 0x41, 0x8A, 0x13 };
 byte server[] = { 192, 168, 1, 190 }; //IP Брокера
-byte ip[]     = { 192, 168, 1, 60 };  //IP Клиента
+byte ip[]     = { 192, 168, 1, 60 };  //IP Клиента (Arduino)
 
 ////////////////////////////////////////////////////////////////////////////
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -73,6 +73,12 @@ void setup() {
     pinMode (start_DO_pin [i], OUTPUT);
   }
 
+  digitalWrite(EMUL, LOW);
+  
+  digitalWrite(OFF, HIGH);
+  digitalWrite(OPEN, HIGH);
+  digitalWrite(UP, HIGH);
+  
   Ethernet.begin(mac, ip);
   if (client.connect(ID_CONNECT)) {
     PubTopic();
@@ -99,15 +105,14 @@ void loop() {
   }
 
   fotoValue = analogRead(FOTO_PIN);
-  if (digitalRead(RING) == HIGH && !flag1 && (millis() - prevMillis5 > 5000)) { // Звонок домофона
+  if (digitalRead(RING) == LOW && !flag1 && (millis() - prevMillis5 > 5000)) { // Звонок домофона
     prevMillis5 = millis();
     client.publish("myhome/Domofon/Ring", "true");
     flag1 = true;
   }
-  else if (digitalRead(RING) == LOW && flag1 && (millis() - prevMillis5 > 5000)) { // Звонок домофона
+  else if (digitalRead(RING) == HIGH && flag1 && (millis() - prevMillis5 > 5000)) { // Звонок домофона
     client.publish("myhome/Domofon/Ring", "false");
     flag1 = false;
-
   }
   if (digitalRead(RING_BTN) == LOW && !flag2 && (millis() - prevMillis4 > 10000) && ButtonOn) { // Звонок
     prevMillis4 = millis();
@@ -142,6 +147,7 @@ void PubTopic() {
   client.publish("myhome/Domofon/Doorbell", "false");
   client.publish("myhome/Domofon/Led", "");
   client.publish("myhome/Domofon/LedDef", "");
+  client.publish("myhome/Domofon/UP", false);
   client.publish("myhome/Domofon/ButtonOff", "false");
 }
 
@@ -162,30 +168,41 @@ void reconnect() {
 
 void callback_iobroker(String strTopic, String strPayload) {
   if (strTopic == "myhome/Domofon/Open") {
-    digitalWrite(UP, HIGH);
-    delay(1000);
-    digitalWrite(OPEN, HIGH);
-    delay(1500);
-    digitalWrite(OPEN, LOW);
-    delay(500);
     digitalWrite(UP, LOW);
+    delay(1000);
+    digitalWrite(OPEN, LOW);
+    delay(1500);
+    digitalWrite(OPEN, HIGH);
+    delay(500);
+    digitalWrite(UP, HIGH);
     client.publish("myhome/Domofon/Open", "false");
+  }
+  else if (strTopic == "myhome/Domofon/UP") {
+    if (strPayload == "true") {
+      digitalWrite(UP, LOW);
+      client.publish("myhome/Domofon/UP", "true");
+    } else {
+      digitalWrite(UP, HIGH);
+      client.publish("myhome/Domofon/UP", "false");
+    }
   }
    else if (strTopic == "myhome/Domofon/Off") {
     if (strPayload == "true") {
-      digitalWrite(OFF, HIGH);
+      digitalWrite(OFF, LOW);
       client.publish("myhome/Domofon/Off", "true");
     } else {
-      digitalWrite(OFF, LOW);
+      digitalWrite(OFF, HIGH);
       client.publish("myhome/Domofon/Off", "false");
     }
   }
   else if (strTopic == "myhome/Domofon/Emulation") {
     if (strPayload == "true") {
+      digitalWrite(OFF, LOW);
       digitalWrite(EMUL, HIGH);
       client.publish("myhome/Domofon/Emulation", "true");
     } else {
       digitalWrite(EMUL, LOW);
+      digitalWrite(OFF, HIGH);
       client.publish("myhome/Domofon/Emulation", "false");
     }
   }
